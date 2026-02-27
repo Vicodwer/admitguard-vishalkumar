@@ -1,0 +1,5 @@
+{
+  "name": "AdmitGuard",
+  "description": "A candidate admission data entry form with strong validation.",
+  "requestFramePermissions": []
+}
