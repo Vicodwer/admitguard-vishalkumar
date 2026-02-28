@@ -1,17 +1,11 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
-import tailwindcss from '@tailwindcss/vite'  // if using the new @tailwindcss/vite plugin
+// import tailwindcss from '@tailwindcss/vite'  // uncomment only if Tailwind is used
 
 export default defineConfig({
   plugins: [
     react(),
-    tailwindcss(),  // keep if your app uses Tailwind classes
+    // tailwindcss(),
   ],
-  base: '/admitguard-vishalkumar/',  // ← MUST match your exact repo name (case-sensitive!)
-  // Optional: if you still need env vars or aliases, add them here
-  // resolve: {
-  //   alias: {
-  //     '@': '/src',
-  //   },
-  // },
+  base: '/admitguard-vishalkumar/',  // ← THIS IS THE KEY LINE – must match repo name exactly!
 })
