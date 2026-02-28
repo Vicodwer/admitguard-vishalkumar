@@ -1,0 +1,20 @@
+User
+You are a senior UI/UX designer and React developer polishing the AdmitGuard admission form app for a professional internal business presentation.
+Current app state:
+Clean card-based single-page React layout with form on main view and Audit Log tab/view
+Professional blues/grays color scheme
+Real-time validations (red strict errors, amber soft warnings), green checks when valid
+Submit button (disabled until ready), success modal on submit
+Active Exceptions counter and flag banner near submit
+Audit Log table with columns (Name, Timestamp, Exceptions, Flagged, View Details button), modal for details, Clear Log button with confirmation
+Now polish the UI for a clean, modern, professional look (aim for enterprise-tool feel: readable, spacious, subtle animations, good hierarchy). Prioritize these changes:
+Form header: Make larger (24-32px), bold, centered, add subtle Futurense/IIT Gandhinagar logo placeholder (e.g., blue icon or text "AdmitGuard" with tagline "Admission Compliance System").
+Increase spacing: Add more padding/margin between form fields (16-24px vertical), between sections, and around cards for breathing room.
+Success/confirmation modal before submit: Add a pre-submit confirmation modal (trigger on submit click) showing summary: candidate name, exception count, flagged status, key fields — with "Confirm & Submit" / "Edit" buttons.
+Animations: Subtle fade-in or scale when a field turns valid (green check appears), or success message fades in.
+Table polish: In Audit Log view — striped rows (light gray alternate), hover effects on rows, better timestamp formatting (e.g., "Feb 27, 2026 7:15 PM"), make "View Details" button blue and prominent.
+Overall: Ensure mobile-friendly if possible (responsive columns), add subtle box-shadows on cards, consistent button styles (rounded, hover states).
+Dark mode toggle: Optional bonus — add a simple switch at top-right for light/dark theme (use CSS variables if easy).
+Keep performance light (<3s load). Do NOT break functionality or change logic/validationRules.
+After initial changes, prepare for Annotation Mode refinements — suggest specific elements I can highlight and describe next.
+Generate updated code and show preview.
