@@ -4,6 +4,7 @@ import { validationRules } from './validationRules';
 import AuditLog, { LogEntry } from './components/AuditLog';
 import LogDetailsModal from './components/LogDetailsModal';
 import ConfirmationModal from './components/ConfirmationModal';
+import Dashboard from './components/Dashboard';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const QUALIFICATIONS = [
@@ -77,7 +78,7 @@ function ExceptionField({ field, softError, exception, rationale, error, onExcep
 
 const RATIONALE_KEYWORDS = ['approved by', 'special case', 'documentation pending', 'waiver granted'];
 
-type View = 'form' | 'audit';
+type View = 'form' | 'audit' | 'dashboard';
 
 export default function App() {
   const [scoreType, setScoreType] = useState<ScoreType>('percentage');
@@ -103,98 +104,124 @@ export default function App() {
 
   useEffect(() => {
     const validate = () => {
-      const newErrors: Partial<Record<keyof FormData, string>> = {};
-      const newSoftErrors: Partial<Record<keyof FormData, string>> = {};
+      const logicErrors: Partial<Record<keyof FormData, string>> = {};
+      const logicSoftErrors: Partial<Record<keyof FormData, string>> = {};
 
       const runChecks = (rules: any[], errorBag: Partial<Record<keyof FormData, string>>) => {
         for (const rule of rules) {
           const { field, checks } = rule;
-          if (touched[field as keyof FormData]) {
-            for (const check of checks) {
-              const value = formData[field as keyof FormData];
-              let hasError = false;
+          for (const check of checks) {
+            const value = formData[field as keyof FormData];
+            let hasError = false;
 
-              switch (check.type) {
-                case 'required':
-                  if (!value) hasError = true;
-                  break;
-                case 'minLength':
-                  if (String(value).length < check.value) hasError = true;
-                  break;
-                case 'noNumbers':
-                  if (/\d/.test(String(value))) hasError = true;
-                  break;
-                case 'email':
-                  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(String(value))) hasError = true;
-                  break;
-                case 'indianMobile':
-                  if (!/^[6-9]\d{9}$/.test(String(value))) hasError = true;
-                  break;
-                case 'notRejected':
-                    if (value === 'Rejected') hasError = true;
-                    break;
-                case 'exactLength':
-                  if (String(value).length !== check.value) hasError = true;
-                  break;
-                case 'onlyNumbers':
-                  if (!/^\d+$/.test(String(value))) hasError = true;
-                  break;
-                case 'ageRange':
-                  if (value) {
-                    const birthDate = new Date(String(value));
-                    const today = new Date();
-                    let age = today.getFullYear() - birthDate.getFullYear();
-                    const m = today.getMonth() - birthDate.getMonth();
-                    if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) age--;
-                    if (age < check.min || age > check.max) {
-                        errorBag[field as keyof FormData] = check.message(age);
-                    }
+            switch (check.type) {
+              case 'required':
+                if (!value) hasError = true;
+                break;
+              case 'minLength':
+                if (String(value).length < check.value) hasError = true;
+                break;
+              case 'noNumbers':
+                if (/\d/.test(String(value))) hasError = true;
+                break;
+              case 'email':
+                if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(String(value))) hasError = true;
+                break;
+              case 'indianMobile':
+                if (!/^[6-9]\d{9}$/.test(String(value))) hasError = true;
+                break;
+              case 'notRejected':
+                if (value === 'Rejected') hasError = true;
+                break;
+              case 'exactLength':
+                if (String(value).length !== check.value) hasError = true;
+                break;
+              case 'onlyNumbers':
+                if (!/^\d+$/.test(String(value))) hasError = true;
+                break;
+              case 'ageRange':
+                if (value) {
+                  const birthDate = new Date(String(value));
+                  const today = new Date();
+                  let age = today.getFullYear() - birthDate.getFullYear();
+                  const m = today.getMonth() - birthDate.getMonth();
+                  if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) age--;
+                  if (age < check.min || age > check.max) {
+                    errorBag[field as keyof FormData] = check.message(age);
                   }
-                  break;
-                case 'range':
-                    if (value && (parseInt(String(value)) < check.min || parseInt(String(value)) > check.max)) hasError = true;
-                    break;
-                case 'min':
-                    if (value && parseFloat(String(value)) < check.value) hasError = true;
-                    break;
-                case 'conditional':
-                    if (check.condition(formData, scoreType)) hasError = true;
-                    break;
-              }
+                } else {
+                    // If ageRange is used on a required field, 'required' check should handle it.
+                    // But if it's just ageRange, and it's empty, we might not want an error here
+                    // unless it's required.
+                }
+                break;
+              case 'range':
+                if (value && (parseInt(String(value)) < check.min || parseInt(String(value)) > check.max)) hasError = true;
+                break;
+              case 'min':
+                if (value && parseFloat(String(value)) < check.value) hasError = true;
+                break;
+              case 'conditional':
+                if (check.condition(formData, scoreType)) hasError = true;
+                break;
+            }
 
-              if (hasError && !errorBag[field as keyof FormData]) {
-                errorBag[field as keyof FormData] = check.message;
-              }
+            if (hasError && !errorBag[field as keyof FormData]) {
+              errorBag[field as keyof FormData] = check.message;
             }
           }
         }
       }
 
-      runChecks(validationRules.strict, newErrors);
-      runChecks(validationRules.soft, newSoftErrors);
+      runChecks(validationRules.strict, logicErrors);
+      runChecks(validationRules.soft, logicSoftErrors);
 
       // Rationale validation
       validationRules.soft.forEach(rule => {
-          if (exceptions[rule.field as keyof FormData]) {
-              const rationale = rationales[rule.field as keyof FormData] || '';
-              if (rationale.length < rule.rationaleMinLength) {
-                  newErrors[rule.field as keyof FormData] = `Rationale must be at least ${rule.rationaleMinLength} characters.`;
-              } else if (!rule.rationaleKeywords.some(k => rationale.toLowerCase().includes(k))) {
-                  newErrors[rule.field as keyof FormData] = `Rationale must include one of: ${rule.rationaleKeywords.join(', ')}.`;
-              }
+        if (exceptions[rule.field as keyof FormData]) {
+          const rationale = rationales[rule.field as keyof FormData] || '';
+          if (rationale.length < rule.rationaleMinLength) {
+            logicErrors[rule.field as keyof FormData] = `Rationale must be at least ${rule.rationaleMinLength} characters.`;
+          } else if (!rule.rationaleKeywords.some(k => rationale.toLowerCase().includes(k))) {
+            logicErrors[rule.field as keyof FormData] = `Rationale must include one of: ${rule.rationaleKeywords.join(', ')}.`;
           }
+        }
       });
 
-      setErrors(newErrors);
-      setSoftErrors(newSoftErrors);
+      // Filter errors for UI display based on 'touched'
+      const uiErrors: Partial<Record<keyof FormData, string>> = {};
+      const uiSoftErrors: Partial<Record<keyof FormData, string>> = {};
 
-      const softErrorsToAddress = Object.keys(newSoftErrors).filter(key => !exceptions[key as keyof FormData]);
+      Object.keys(logicErrors).forEach(key => {
+        if (touched[key as keyof FormData]) {
+          uiErrors[key as keyof FormData] = logicErrors[key as keyof FormData];
+        }
+      });
 
-      const allFields = Object.keys(initialFormData);
-      const allTouched = allFields.every(f => touched[f as keyof FormData]);
+      Object.keys(logicSoftErrors).forEach(key => {
+        if (touched[key as keyof FormData]) {
+          uiSoftErrors[key as keyof FormData] = logicSoftErrors[key as keyof FormData];
+        }
+      });
 
-      const isInvalid = Object.keys(newErrors).length > 0 || softErrorsToAddress.length > 0 || formData.interviewStatus === 'Rejected';
-      setIsSubmitDisabled(isInvalid || !allTouched);
+      setErrors(uiErrors);
+      setSoftErrors(uiSoftErrors);
+
+      // Submit is disabled if:
+      // 1. Any strict rule fails (logicErrors contains strict failures)
+      // 2. Any rationale is invalid (logicErrors contains rationale failures)
+      // 3. Any soft rule fails AND no exception is requested
+      // 4. Interview status is Rejected
+      
+      const softRulesUnresolved = Object.keys(logicSoftErrors).some(field => !exceptions[field as keyof FormData]);
+      const hasBlockingErrors = Object.keys(logicErrors).length > 0;
+      const isRejected = formData.interviewStatus === 'Rejected';
+
+      // Check if all required fields are touched (to avoid showing the global error message too early)
+      const requiredFields = validationRules.strict.filter(r => r.checks.some(c => c.type === 'required')).map(r => r.field);
+      const allRequiredTouched = requiredFields.every(f => touched[f as keyof FormData]);
+
+      setIsSubmitDisabled(hasBlockingErrors || softRulesUnresolved || isRejected || !allRequiredTouched);
     };
 
     validate();
@@ -203,6 +230,7 @@ export default function App() {
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
+    setTouched(prev => ({ ...prev, [name]: true }));
   };
 
   const handleBlur = (e: React.FocusEvent<HTMLInputElement | HTMLSelectElement>) => {
@@ -238,7 +266,21 @@ export default function App() {
   const handleConfirmSubmit = () => {
     setShowConfirmation(false);
 
-    const exceptionCount = Object.values(exceptions).filter(Boolean).length;
+    // Exception count is correctly calculated only from fields where exception is requested AND rationale is valid
+    const validExceptions = Object.entries(exceptions).filter(([field, isRequested]) => {
+        if (!isRequested) return false;
+        
+        const rule = validationRules.soft.find(r => r.field === field);
+        if (!rule) return false;
+
+        const rationale = rationales[field as keyof FormData] || '';
+        const isValidRationale = rationale.length >= rule.rationaleMinLength && 
+                                 rule.rationaleKeywords.some(k => rationale.toLowerCase().includes(k));
+        
+        return isValidRationale;
+    });
+
+    const exceptionCount = validExceptions.length;
     const flagged = exceptionCount > validationRules.system.maxExceptionsWithoutFlag;
 
     const logEntry: LogEntry = {
@@ -246,12 +288,10 @@ export default function App() {
       timestamp: new Date().toISOString(),
       candidateData: { ...formData, percentageMode: scoreType === 'percentage' },
       exceptionCount,
-      exceptions: Object.entries(exceptions)
-        .filter(([, value]) => value)
-        .map(([key]) => ({
+      exceptions: validExceptions.map(([key]) => ({
           field: key,
           rationale: rationales[key as keyof FormData] || '',
-        })),
+      })),
       flagged,
     };
 
@@ -282,6 +322,25 @@ export default function App() {
     return 'border-slate-300';
   }
 
+  // Exception count is correctly calculated only from fields where exception is requested AND rationale is valid
+  const getValidExceptions = () => {
+      return Object.entries(exceptions).filter(([field, isRequested]) => {
+          if (!isRequested) return false;
+          
+          const rule = validationRules.soft.find(r => r.field === field);
+          if (!rule) return false;
+
+          const rationale = rationales[field as keyof FormData] || '';
+          const isValidRationale = rationale.length >= rule.rationaleMinLength && 
+                                   rule.rationaleKeywords.some(k => rationale.toLowerCase().includes(k));
+          
+          return isValidRationale;
+      });
+  };
+
+  const currentExceptionCount = getValidExceptions().length;
+  const isFlagged = currentExceptionCount > validationRules.system.maxExceptionsWithoutFlag;
+
   return (
     <div className={`${isDarkMode ? 'dark' : ''}`}>
       <div className="min-h-screen bg-slate-100 dark:bg-slate-900 font-sans text-slate-800 dark:text-slate-200 flex flex-col items-center justify-start p-4 sm:p-6 lg:p-8">
@@ -294,6 +353,7 @@ export default function App() {
                 </div>
                 <div className='absolute top-6 right-6 flex items-center gap-4'>
                     <div className="flex items-center rounded-lg p-1 bg-slate-100 dark:bg-slate-700">
+                        <button onClick={() => setView('dashboard')} className={`px-4 py-1.5 text-sm font-semibold rounded-md transition-colors ${view === 'dashboard' ? 'bg-white dark:bg-slate-600 shadow-sm text-blue-600 dark:text-white' : 'text-slate-600 dark:text-slate-300'}`}>Dashboard</button>
                         <button onClick={() => setView('form')} className={`px-4 py-1.5 text-sm font-semibold rounded-md transition-colors ${view === 'form' ? 'bg-white dark:bg-slate-600 shadow-sm text-blue-600 dark:text-white' : 'text-slate-600 dark:text-slate-300'}`}>Form</button>
                         <button onClick={() => setView('audit')} className={`px-4 py-1.5 text-sm font-semibold rounded-md transition-colors ${view === 'audit' ? 'bg-white dark:bg-slate-600 shadow-sm text-blue-600 dark:text-white' : 'text-slate-600 dark:text-slate-300'}`}>Audit Log</button>
                     </div>
@@ -311,7 +371,9 @@ export default function App() {
                 exit={{ opacity: 0, y: -20 }}
                 transition={{ duration: 0.2 }}
               >
-                {view === 'form' ? (
+                {view === 'dashboard' ? (
+                  <Dashboard />
+                ) : view === 'form' ? (
                   <form onSubmit={handlePreSubmit} className="p-6 sm:p-8 space-y-8">
                       {formData.interviewStatus === 'Rejected' && (
                           <div className="bg-red-50 dark:bg-red-900/20 border-l-4 border-red-400 text-red-700 dark:text-red-300 p-4" role="alert">
@@ -430,14 +492,25 @@ export default function App() {
                       </div>
                       </div>
 
-                      <div className="pt-6 border-t border-slate-200/80 dark:border-slate-700/50">
-                          {Object.values(exceptions).filter(Boolean).length > validationRules.system.maxExceptionsWithoutFlag && (
+                       <div className="pt-6 border-t border-slate-200/80 dark:border-slate-700/50">
+                          {isFlagged && (
                               <div className="mb-4 bg-amber-50 dark:bg-amber-900/20 border-l-4 border-amber-400 text-amber-700 dark:text-amber-300 p-4" role="alert">
                                   <p className="font-bold">{validationRules.system.flagMessage}</p>
                               </div>
                           )}
+
+                          {isSubmitDisabled && Object.keys(touched).length > 0 && (
+                              <div className="mb-4 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+                                  <p className="text-xs text-red-700 dark:text-red-300 font-medium text-center">
+                                      {formData.interviewStatus === 'Rejected' 
+                                          ? "Cannot submit for rejected candidates."
+                                          : "Please ensure all required fields are filled and exceptions have valid rationales (min 30 chars + keyword)."}
+                                  </p>
+                              </div>
+                          )}
+
                           <div className="flex justify-between items-center">
-                              <p className="text-sm text-slate-600 dark:text-slate-300 font-medium">Active Exceptions: {Object.values(exceptions).filter(Boolean).length}</p>
+                              <p className="text-sm text-slate-600 dark:text-slate-300 font-medium">Active Exceptions: {currentExceptionCount}</p>
                               <button type="submit" disabled={isSubmitDisabled} className="px-6 py-2.5 bg-blue-600 text-white font-semibold rounded-lg shadow-md disabled:bg-slate-300 dark:disabled:bg-slate-600 disabled:cursor-not-allowed hover:bg-blue-700 transition-colors">
                                   Submit Application
                               </button>
@@ -456,8 +529,8 @@ export default function App() {
                 <ConfirmationModal 
                     entry={{
                         candidateData: formData,
-                        exceptionCount: Object.values(exceptions).filter(Boolean).length,
-                        flagged: Object.values(exceptions).filter(Boolean).length > validationRules.system.maxExceptionsWithoutFlag
+                        exceptionCount: currentExceptionCount,
+                        flagged: isFlagged
                     }}
                     onConfirm={handleConfirmSubmit}
                     onCancel={() => setShowConfirmation(false)}
